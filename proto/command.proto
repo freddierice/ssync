@@ -1,0 +1,31 @@
+syntax = "proto3";
+
+package proto;
+
+// Command holds the command for the program
+message Command {
+	enum Type {
+		ERROR = 0;
+		FILE_LIST = 1;
+	}
+
+	Type type = 1;
+	FileList file_list = 2;
+	Plan plan = 3;
+}
+
+// FileList holds a list of files.
+message FileList {
+	message File {
+		string path = 1;
+		uint64 size = 2;
+	}
+
+	repeated File files = 1;
+}
+
+// the send plan consists of the indices of the next files in the queue
+// to be run. 
+message Plan {
+	repeated uint32 file_indices = 1;
+}

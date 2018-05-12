@@ -1,0 +1,9 @@
+version: '2'
+
+services:
+    ssyncd:
+        build: .
+        ports: 
+            - "8130:8130"
+        volumes:
+            - .:/code
