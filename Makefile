@@ -1,7 +1,7 @@
 ## Define Compilers
 CXX:=g++
 CXX_FLAGS:=-Wall -std=c++17 # -O2
-LIBS:=-lpthread -lssh2 -lprotobuf
+LIBS:=-lpthread -lssh2 -lprotobuf -lstdc++fs
 
 ## Gather the obj files
 PROTOS=$(patsubst proto/%.proto,proto/%.pb.h,$(wildcard proto/*.proto))

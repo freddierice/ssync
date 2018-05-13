@@ -16,16 +16,15 @@ message Command {
 
 // FileList holds a list of files.
 message FileList {
-	message File {
-		string path = 1;
-		uint64 size = 2;
-	}
-
-	repeated File files = 1;
+	repeated string files = 1;
 }
 
 // the send plan consists of the indices of the next files in the queue
 // to be run. 
 message Plan {
-	repeated uint32 file_indices = 1;
+	message File {
+		uint64 id = 1;
+		uint64 size = 2;
+	}
+	repeated File files = 1;
 }
