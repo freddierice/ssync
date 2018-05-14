@@ -6,8 +6,8 @@
 namespace ssync {
 namespace net {
 	SSYNC_EXCEPTION(util::SSyncException, ClientException);
-	void create_proxy(int& read_fd, int& write_fd);
-	void run_proxy(int read_fd, int write_fd, std::shared_ptr<SSH::SSHChannel> chan);
+	void create_proxy(int& client_fd, int& proxy_fd);
+	void run_proxy(int fd, std::shared_ptr<SSH::SSHChannel> chan);
 }
 }
 

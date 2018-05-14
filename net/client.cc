@@ -1,3 +1,8 @@
+#include <atomic>
+#include <future>
+#include <condition_variable> 
+#include <mutex>
+
 #include <linux/tcp.h>
 #include <unistd.h>
 #include <poll.h>
@@ -5,6 +10,9 @@
 #include <sys/types.h>
 #include <netinet/in.h>
 // #include <linux/tcp.h>
+#include <netdb.h>
+#include <errno.h>
+#include <arpa/inet.h>
 
 #include "net/client.h"
 #include "util/io.h"
@@ -13,16 +21,52 @@
 
 namespace ssync {
 namespace net {
-	void create_proxy(int& read, int& write) {
-		int pipefds[2];
-		if (::pipe(pipefds) == -1)
-			throw ClientException("could not create pipe");
-		read = pipefds[0];
-		write = pipefds[1];
+	void create_proxy(int& client_fd, int& proxy_fd) {
+		struct sockaddr_in client_addr;
+		struct sockaddr_in server_addr;
+		int one = 1;
+
+		memset(&client_addr, 0, sizeof(client_addr));
+		client_addr.sin_family = AF_INET;
+		client_addr.sin_port = htons(3131);
+		inet_pton(AF_INET, "127.0.0.1", &client_addr.sin_addr);
+		
+		memset(&server_addr, 0, sizeof(server_addr));
+		server_addr.sin_family = AF_INET;
+		server_addr.sin_port = htons(3131);
+		inet_pton(AF_INET, "127.0.0.1", &server_addr.sin_addr);
+
+		std::atomic<bool> accepting(false);
+		
+		std::thread thr([&] {
+				if ((proxy_fd = socket(AF_INET, SOCK_STREAM, 0)) == -1)
+					throw ClientException("could not create socket");
+				if (setsockopt(proxy_fd, SOL_SOCKET, SO_REUSEADDR, (char *)&one,
+							sizeof(one)) < 0)
+					throw ClientException("could not set SO_REUSEADDR");
+				if (bind(proxy_fd, (struct sockaddr *)&server_addr,
+							sizeof(server_addr)) < 0)
+					throw ClientException("could not bind");
+				if (listen(proxy_fd, 1) < 0)
+					return;
+				accepting = true;
+				proxy_fd = accept(proxy_fd, NULL, NULL);
+				accepting = false;
+			});
+		
+		if ((client_fd = socket(AF_INET, SOCK_STREAM, 0)) == -1)
+			throw ClientException("could not create socket");
+		if (connect(client_fd, (const struct sockaddr *)&client_addr, sizeof(struct sockaddr_in)))
+			throw ClientException("could not connect");
+
+		// join with the thread.
+		thr.join();
 	}
 
-	void run_proxy(int read_fd, int write_fd, std::shared_ptr<SSH::SSHChannel> chan) {
-		char *buffer_pipe, *buffer_channel;
+	void run_proxy(int fd, std::shared_ptr<SSH::SSHChannel> chan) {
+		char *buffer_local, *buffer_remote;
+		int idx_local_start, idx_local_end;
+		int idx_remote_start, idx_remote_end;
 		struct tcp_info ti;
 		int buffer_len;
 		int ret;
@@ -32,15 +76,17 @@ namespace net {
 
 		// proxy the ssh connection
 		buffer_len = ti.tcpi_snd_mss > ti.tcpi_rcv_mss ? ti.tcpi_snd_mss : ti.tcpi_rcv_mss;
-		buffer_pipe = new char(buffer_len);
-		buffer_channel = new char(buffer_len);
+		buffer_local = new char(buffer_len);
+		buffer_remote = new char(buffer_len);
 
 		struct pollfd fds[2];
-		fds[0].fd = read_fd;
-		fds[0].events = POLLIN;
+		fds[0].fd = fd;
+		fds[0].events = POLLIN | POLLOUT | POLLWRBAND;
 		fds[1].fd = chan->socket();
-		fds[1].events = POLLIN;
+		fds[1].events = POLLIN | POLLOUT | POLLWRBAND;
 
+		idx_local_start = idx_remote_start = 0;
+		idx_local_end = idx_remote_end = 0;
 		for (;;) {
 			ret = poll(fds, 2, -1);
 			if (ret == -1) {
@@ -49,29 +95,50 @@ namespace net {
 				throw ClientException("could not poll for file descriptors");
 			}
 			
-			if (fds[0].revents & POLLIN) {
+			if (fds[0].revents & POLLIN && idx_local_start == 0 
+					&& idx_local_end < buffer_len) {
 				log::console->info("read_fd");
-				ret = ::read(read_fd, buffer_pipe, buffer_len);
+				ret = ::read(fd, buffer_local + idx_local_end,
+						buffer_len - idx_local_end);
 				if (ret > 0)
-					util::write_full(
-							[&](const void *buffer, int size) {
-									return chan->write(buffer, size);
-								}, buffer_pipe, ret);
+					idx_local_end += ret;
 			}
 
-			if (fds[1].revents & POLLIN) {
+			if (fds[1].revents & POLLIN && idx_remote_start == 0
+					&& idx_remote_end < buffer_len) {
 				log::console->info("chan_fd");
-				ret = chan->read(buffer_channel, buffer_len);
+				ret = chan->read(buffer_remote+idx_remote_end,
+						buffer_len-idx_remote_end);
 				if (ret > 0)
-					util::write_full(write_fd, buffer_channel, ret);
+					idx_remote_end += ret;
+			}
+									
+			if (idx_remote_end && (POLLOUT | POLLWRBAND) & fds[1].revents) {
+				ret = ::write(fd, buffer_remote+idx_remote_start,
+						idx_remote_end - idx_remote_start);
+				if (ret > 0) {
+					idx_remote_start += ret;
+					if (idx_remote_start == idx_remote_end)
+						idx_remote_start = idx_remote_end = 0;
+				}
+			}
+
+			if (idx_local_end && (POLLOUT | POLLWRBAND) & fds[1].revents) {
+				ret = chan->write(buffer_local + idx_local_start,
+						idx_local_end - idx_local_start);
+				if (ret > 0) {
+					idx_local_start += ret;
+					if (idx_local_start == idx_local_end)
+						idx_local_start = idx_local_end;
+				}
 			}
 
 			if (fds[0].revents & POLLHUP || fds[1].revents & POLLHUP)
 				break;
 		}
 
-		delete buffer_pipe;
-		delete buffer_channel;
+		delete buffer_local;
+		delete buffer_remote;
 	}
 }
 }
