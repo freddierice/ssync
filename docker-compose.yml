@@ -6,4 +6,4 @@ services:
         ports: 
             - "8130:8130"
         volumes:
-            - .:/code
+            - .:/wd
