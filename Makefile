@@ -1,6 +1,6 @@
 ## Define Compilers
 CXX:=g++
-CXX_FLAGS:=-Wall -std=c++17 # -O2
+CXX_FLAGS:=-Wall -std=c++17 -O0 -g # -O2
 LIBS:=-lpthread -lssh2 -lprotobuf -lstdc++fs
 
 ## Gather the obj files
