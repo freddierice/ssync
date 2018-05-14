@@ -74,11 +74,14 @@ void handle_client(int fd) try {
 		throw std::runtime_error("client should have sent a file list");
 	
 	// get the file list
+	console->info("getting file list");
 	auto file_list = command.file_list().files();
 	const auto file_list_size = file_list.size();
 	std::vector<std::string> files;
-	for (auto i = 0; i < file_list_size; i++)
+	for (auto i = 0; i < file_list_size; i++) {
+		console->info("got: {}", file_list[i]);
 		files.push_back(file_list[i]);
+	}
 
 	// get file info
 	auto info = fs::File::get_files(files);

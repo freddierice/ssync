@@ -45,11 +45,13 @@ int main(int argc, const char *argv[]) {
 
 	// parse the file list
 	std::vector<std::string> locals;
-	proto::FileList file_list;
+	proto::Command command;
+	command.set_type(proto::Command::FILE_LIST);
+	auto file_list = command.file_list();
 	for (int i = 1; i < argc-1; i++) {
 		auto p = std::experimental::filesystem::path(argv[i]);
 		locals.push_back(target / p.filename());
-		file_list.add_files(p.string());
+		*file_list.add_files() = p.string();
 	}
 
 	try {
@@ -63,15 +65,14 @@ int main(int argc, const char *argv[]) {
 		int read_fd, write_fd;
 		net::create_proxy(read_fd, write_fd);
 		std::thread thr(net::run_proxy, read_fd, write_fd, chan);
-		thr.detach();
 
 		console->info("sending file list");
 		util::Proto proto(read_fd, write_fd);
-		proto::Command command;
-		command.set_type(proto::Command::FILE_LIST);
-		command.set_allocated_file_list(&file_list);
 		proto.sendMessage(command);
+		command.Clear();
 		
+		console->info("joining with proxy");
+		thr.join();
 		/*
 		while (chan->open()) {
 			int i = chan->read(static_cast<void *>(buffer), sizeof(buffer));

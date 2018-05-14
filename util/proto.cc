@@ -9,20 +9,20 @@
 namespace ssync {
 namespace util {
 
-Proto::Proto(int fd) : m_read_fd(fd), m_write_fd(fd), m_recvBufferLen(4096), m_sendBufferLen(4096),
+Proto::Proto(int fd) : Proto(fd, fd) {}
+Proto::Proto(int read_fd, int write_fd) : m_read_fd(read_fd), m_write_fd(write_fd), m_recvBufferLen(4096), m_sendBufferLen(4096),
 	m_recvBuffer(new char[m_recvBufferLen]),
 	m_sendBuffer(new char[m_sendBufferLen]),
 	m_recvBufferIter(m_recvBuffer), m_recvLen(0), m_connected(true) {
 	
-	// set timeout to 3s and 100 ms.
-	struct timeval tv;
-	tv.tv_sec = 3;
-	tv.tv_usec = 100000;
-	if (setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, (const char *)&tv, sizeof(struct timeval)) < 0)
-		throw ProtoException("could not set timeout on socket");
-}
-
-Proto::Proto(int read_fd, int write_fd) : m_read_fd(read_fd), m_write_fd(write_fd) {
+	if (m_read_fd == m_write_fd) {
+		// set timeout to 3s and 100 ms.
+		struct timeval tv;
+		tv.tv_sec = 3;
+		tv.tv_usec = 100000;
+		if (setsockopt(m_read_fd, SOL_SOCKET, SO_RCVTIMEO, (const char *)&tv, sizeof(struct timeval)) < 0)
+			throw ProtoException("could not set timeout on socket");
+	}
 }
 
 Proto::~Proto() {
