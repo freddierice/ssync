@@ -36,6 +36,7 @@ int main(int argc, const char *argv[]) try {
 	// shutdown in a safe way
 	std::signal(SIGINT, signal_shutdown);
 
+	console->info("starting");
 	net::Server server;
 	while (!shutdown) {
 		// try to accept a client
