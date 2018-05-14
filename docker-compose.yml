@@ -1,4 +1,4 @@
-version: '2'
+version: '3'
 
 services:
     ssyncd:
@@ -7,3 +7,4 @@ services:
             - "8130:8130"
         volumes:
             - .:/wd
+        image: freddierice/ssync
