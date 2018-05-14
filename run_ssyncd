@@ -1,2 +1,2 @@
 #!/bin/bash
-docker-compose run ssyncd ./ssyncd $@
+docker-compose run -p 3130:3130 ssyncd ./ssyncd
