@@ -8,6 +8,7 @@
 
 #include "net/client.h"
 #include "util/io.h"
+#include "log/log.h"
 
 
 namespace ssync {
@@ -49,6 +50,7 @@ namespace net {
 			}
 			
 			if (fds[0].revents & POLLIN) {
+				log::console->info("read_fd");
 				ret = ::read(read_fd, buffer_pipe, buffer_len);
 				if (ret > 0)
 					util::write_full(
@@ -58,6 +60,7 @@ namespace net {
 			}
 
 			if (fds[1].revents & POLLIN) {
+				log::console->info("chan_fd");
 				ret = chan->read(buffer_channel, buffer_len);
 				if (ret > 0)
 					util::write_full(write_fd, buffer_channel, ret);

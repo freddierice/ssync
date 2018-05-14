@@ -62,12 +62,14 @@ int main(int argc, const char *argv[]) {
 		auto chan = ssh.conn(net::Server::Config::DEFAULT_HOST,
 				net::Server::Config::DEFAULT_PORT);
 		
-		int read_fd, write_fd;
-		net::create_proxy(read_fd, write_fd);
-		std::thread thr(net::run_proxy, read_fd, write_fd, chan);
+		int clear_read_fd, clear_write_fd;
+		int enc_read_fd, enc_write_fd;
+		net::create_proxy(clear_read_fd, clear_write_fd);
+		net::create_proxy(enc_read_fd, enc_write_fd);
+		std::thread thr(net::run_proxy, clear_read_fd, enc_write_fd, chan);
 
 		console->info("sending file list");
-		util::Proto proto(read_fd, write_fd);
+		util::Proto proto(enc_read_fd, clear_write_fd);
 		proto.sendMessage(command);
 		command.Clear();
 		
