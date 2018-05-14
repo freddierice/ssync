@@ -8,6 +8,7 @@
 #include <netdb.h>
 
 #include "SSH.h"
+#include "log/log.h"
 
 namespace ssync {
 namespace net {
@@ -61,13 +62,18 @@ namespace net {
 		// all non-blocking
 		libssh2_session_set_blocking(m_session, 0);
 
-		if (libssh2_session_handshake(m_session, m_socket))
+		while ((ret = libssh2_session_handshake(m_session, m_socket)) == LIBSSH2_ERROR_EAGAIN) {}
+		if (ret)
 			throw SSHException("libssh2 handshake failed");
 
 		// XXX: add fingerprint checking
 		// fingerprint = ..
 		libssh2_hostkey_hash(m_session, LIBSSH2_HOSTKEY_HASH_SHA1);
-		userauthlist = libssh2_userauth_list(m_session, username.c_str(), username.length());
+		;
+		while ((userauthlist = libssh2_userauth_list(m_session,
+							username.c_str(), username.length())) == NULL
+				&& libssh2_session_last_error(m_session, NULL, NULL, 0) == 
+					LIBSSH2_ERROR_EAGAIN) {}
 		if (strstr(userauthlist, "publickey") == NULL)
 			throw SSHException("publickey authorization not allowed on server");
 
@@ -87,7 +93,9 @@ namespace net {
 				throw SSHException("no functioning ssh keys");
 			if (ret < 0)
 				throw SSHException("could not obtain identity from ssh-agent");
-			if (!libssh2_agent_userauth(agent, username.c_str(), identity))
+			while ((ret = libssh2_agent_userauth(agent, username.c_str(), identity)) == 
+					LIBSSH2_ERROR_EAGAIN) {}
+			if (!ret)
 				break;
 			prev_identity = identity;
 		}
@@ -129,7 +137,10 @@ namespace net {
 
 	SSH::SSHChannel::SSHChannel(int socket, LIBSSH2_SESSION *session,
 			const std::string& host, int port) : m_socket(socket) {
-		if (!(m_channel = libssh2_channel_direct_tcpip(session, host.c_str(), port)))
+		log::console->info("socket: {}", port);
+		while (!(m_channel = libssh2_channel_direct_tcpip(session, host.c_str(), port))
+				&& libssh2_session_last_error(session, NULL, NULL, 0) == LIBSSH2_ERROR_EAGAIN) {}
+		if (!m_channel)
 			throw SSHException("could not open tcpip connection");
 	}
 

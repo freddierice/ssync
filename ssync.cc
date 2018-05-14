@@ -53,6 +53,7 @@ int main(int argc, const char *argv[]) {
 	}
 
 	try {
+		console->info("logging into {}@{}", username, servername);
 		net::SSH ssh(username, servername);
 		// char buffer[0x10000];
 
