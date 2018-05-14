@@ -13,14 +13,14 @@ namespace smart {
 	
 	void PlanRaw::send(int fd) {
 		for (auto& file : m_files) {
-			auto reader = file->reader();
+			auto reader = fs::Reader(file);
 			reader.read_to(fd);
 		}
 	}
 
 	void PlanRaw::recv(int fd) {
 		for (auto& file : m_files) {
-			auto writer = file->writer();
+			auto writer = fs::Writer(file);
 			writer.write_from(fd);
 		}
 	}
