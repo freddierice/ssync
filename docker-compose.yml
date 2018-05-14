@@ -4,7 +4,7 @@ services:
     ssyncd:
         build: ./docker
         ports: 
-            - "3130:3130"
+            - 3130:3130
         volumes:
             - .:/wd
         image: freddierice/ssync

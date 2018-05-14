@@ -53,4 +53,4 @@ RUN git clone https://aur.archlinux.org/cower.git \
 
 WORKDIR /wd
 ENTRYPOINT ["/usr/local/bin/dumb-init", "--"]
-CMD ["/code/ssyncd"]
+CMD ["/wd/ssyncd"]
