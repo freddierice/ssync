@@ -1,6 +1,8 @@
 #ifndef __STATS_H__
 #define __STATS_H__
 
+#include "smart/planner.h"
+
 namespace ssync {
 namespace smart {
 	class Stats {
@@ -11,7 +13,6 @@ namespace smart {
 		friend smart::Planner;
 		int m_sent;
 		int m_size;
-		int 
 	};
 }
 }

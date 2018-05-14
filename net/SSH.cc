@@ -94,11 +94,11 @@ namespace net {
 	}
 	
 	std::shared_ptr<SSH::SSHChannel> SSH::run(const std::string &cmd) {
-		return std::make_shared<SSHChannel>(m_session, cmd);
+		return std::make_shared<SSHChannel>(m_socket, m_session, cmd);
 	}
 
 	std::shared_ptr<SSH::SSHChannel> SSH::conn(const std::string &host, int port) {
-		return std::make_shared<SSHChannel>(m_session, host, port);
+		return std::make_shared<SSHChannel>(m_socket, m_session, host, port);
 	}
 
 	SSH::~SSH() {
@@ -109,7 +109,8 @@ namespace net {
 		::close(m_socket);
 	}
 
-	SSH::SSHChannel::SSHChannel(LIBSSH2_SESSION *session, const std::string& cmd) {
+	SSH::SSHChannel::SSHChannel(int socket, LIBSSH2_SESSION *session,
+			const std::string& cmd) : m_socket(socket) {
 		int ret;
 
 		while ((m_channel = libssh2_channel_open_session(session)) == NULL &&
@@ -126,9 +127,16 @@ namespace net {
 			throw SSHException("could not send eof");
 	}
 
-	SSH::SSHChannel::SSHChannel(LIBSSH2_SESSION *session, const std::string& host, int port) {
+	SSH::SSHChannel::SSHChannel(int socket, LIBSSH2_SESSION *session,
+			const std::string& host, int port) : m_socket(socket) {
 		if (!(m_channel = libssh2_channel_direct_tcpip(session, host.c_str(), port)))
 			throw SSHException("could not open tcpip connection");
+	}
+
+	SSH::SSHChannel::SSHChannel(SSHChannel&& other) : m_channel(other.m_channel),
+		m_socket(other.m_socket) {
+		other.m_socket = -1;
+		other.m_channel = 0;
 	}
 
 	int SSH::SSHChannel::read(void *buffer, int len) {
@@ -155,6 +163,10 @@ namespace net {
 			throw SSHException("connection dead");
 
 		return ret;
+	}
+
+	int SSH::SSHChannel::socket() {
+		return m_socket;
 	}
 
 	bool SSH::SSHChannel::open() {

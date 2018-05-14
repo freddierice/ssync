@@ -2,6 +2,8 @@
 #include <stdexcept>
 #include <exception>
 #include <regex>
+#include <future>
+#include <thread>
 #include <iostream>
 #include <string>
 #include <vector>
@@ -14,6 +16,7 @@
 #include "proto/command.pb.h"
 #include "fs/file.h"
 #include "smart/planner.h"
+#include "smart/executor.h"
 #include "session/session.h"
 
 #include <cstring>
@@ -80,10 +83,12 @@ void handle_client(int fd) try {
 	// get file info
 	auto info = fs::File::get_files(files);
 
-	// generate a plan
+	// create the planner
 	smart::Planner planner(info);
-	
-	// execute the plan
+	smart::Executor executor(fd);
+	while (!planner.empty()) {
+		// smart::Stats stats = executor.execute(planner.next());
+	}
 
 	close(fd);
 } catch (util::ProtoException &ex) {

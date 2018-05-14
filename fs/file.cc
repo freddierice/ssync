@@ -7,13 +7,13 @@
 namespace ssync {
 namespace fs {
 	File::File(const std::string& path, int id) : m_path(path), m_stat(),
-		m_id(id) {
+		m_id(id), m_chunks(0) {
 		if (stat(path.c_str(), &m_stat))
 			throw FileException("could not get stats on file");
 	}
 	
 	File::File(const std::string& path, int id, int size) : m_path(path), m_stat(),
-		m_id(id) {
+		m_id(id), m_chunks(0) {
 		int fd, ret;
 		char zero = '\0';
 

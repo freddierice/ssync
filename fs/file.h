@@ -23,86 +23,11 @@ struct stat;
 namespace ssync {
 namespace fs {
 	SSYNC_EXCEPTION(util::SSyncException, FileException);
+		
+	class Reader;
+	class Writer;
 
 	class File {
-	public:
-		class Reader {
-		public:
-			Reader(File& file) : Reader(file.path(), file.size()) {}
-			Reader(const std::string& path, int size) : m_fd(-1), m_size(size) {
-				if ((m_fd = ::open(path.c_str(), O_RDONLY)) < 0)
-					throw FileException("could not open file");	
-			}
-			Reader(Reader&& other) : m_fd(other.m_fd), m_size(other.m_size) {
-				other.m_fd = 0;
-			}
-
-			void read_to(int fd) {
-				int ret;
-				int total = m_size;
-				while (total) {
-					if ((ret = ::sendfile(fd, m_fd, NULL, m_size)) == -1) {
-						if (errno == EAGAIN) 
-							continue;
-						throw FileException("could not send file");
-					}
-					total -= ret;
-				}
-			}
-			~Reader() {
-				if (m_fd >= 0)
-					::close(m_fd);
-			}
-		protected:
-			int m_fd;
-			int m_size;
-		private:
-			Reader() = delete;
-			Reader(const Reader& other) = delete;
-			Reader& operator=(const Reader& other) = delete;
-		};
-
-		class Writer {
-		public:
-			Writer(File& file) : Writer(file.path(), file.size()) {}
-			Writer(const std::string& path, int size) : m_fd(-1), m_size(size) {
-				if ((m_fd = ::open(path.c_str(), O_RDWR)) < 0)
-					throw FileException("could not open file");
-			}
-			Writer(Writer&& other) : m_fd(other.m_fd), m_size(other.m_size) {
-				other.m_fd = -1;
-			}
-
-			void write_from(int fd) {
-				int pipe_write, pipe_read;
-				auto s = session::current();
-
-				pipe_read = s->m_pipefds[0];
-				pipe_write = s->m_pipefds[1];
-
-				int total = m_size;
-				int ret;
-				while (total) {
-					ret = ::splice(fd, NULL, pipe_write, NULL, total, SPLICE_F_MOVE);
-					if (ret == -1)
-						throw FileException("could not splice from socket");
-					::splice(pipe_read, NULL, m_fd, NULL, ret, SPLICE_F_MOVE);
-					total -= ret;
-				}
-			}
-
-			~Writer() {
-				if (m_fd >= 0) 
-					::close(m_fd);
-			}
-		protected:
-			int m_fd;
-			int m_size;
-		private:
-			Writer() = delete;
-			Writer(const Reader& other) = delete;
-			Writer& operator=(const Writer& other) = delete;
-		};
 	public:
 		// opens a file
 		File(const std::string& path, int id);
@@ -111,10 +36,11 @@ namespace fs {
 		File(const std::string& path, int id, int size);
 		int id() { return m_id; }
 		int size() { return m_stat.st_size; }
+		uint64_t chunks_done() { return m_chunks; }
+		uint64_t chunks_total() { return (m_stat.st_size + 4096 - 1) / 4096; }
+		bool done() { return chunks_done() == chunks_total(); }
 		const std::string path() { return m_path.string(); }
 		const std::string name() { return m_path.filename(); }
-		Reader reader() { return Reader(*this); }
-		Writer writer() { return Writer(*this); }
 	public:
 		static std::list<std::shared_ptr<File>> 
 			create_files(std::vector<std::string>& file_list,
@@ -125,6 +51,106 @@ namespace fs {
 		filesystem::path m_path;
 		struct stat m_stat;
 		int m_id;
+	protected:
+		friend Reader;
+		friend Writer;
+		uint64_t m_chunks;
+	};
+
+
+	class Reader {
+	public:
+		Reader(std::shared_ptr<File> file) : m_file(file) {
+			if ((m_fd = ::open(m_file->path().c_str(), O_RDONLY)) < 0)
+				throw FileException("could not open file");	
+			if (lseek(m_fd, file->chunks_done()*4096, SEEK_SET) == -1)
+				throw FileException("could not seek file");
+		}
+		Reader(Reader&& other) : m_file(other.m_file), m_fd(other.m_fd) {
+			other.m_fd = -1;
+		}
+
+		void read_to(int fd) {
+			read_to(fd, m_file->chunks_total() - m_file->chunks_done());
+		}
+
+		void read_to(int fd, uint64_t chunks) {
+			int ret;
+			int total_left = m_file->size() - m_file->chunks_done()*4096;
+			int total_requested = chunks*4096;
+			int total = total_requested > total_left ? total_left : total_requested;
+			while (total) {
+				if ((ret = ::sendfile(fd, m_fd, NULL, total)) == -1) {
+					if (errno == EAGAIN) 
+						continue;
+					throw FileException("could not send file");
+				}
+				total -= ret;
+			}
+
+			m_file->m_chunks += chunks;
+		}
+		~Reader() {
+			if (m_fd >= 0)
+				::close(m_fd);
+		}
+	private:
+		Reader() = delete;
+		Reader(const Reader& other) = delete;
+		Reader& operator=(const Reader& other) = delete;
+
+		std::shared_ptr<File> m_file;
+		int m_fd;
+	};
+
+	class Writer {
+	public:
+		Writer(std::shared_ptr<File> file) : m_file(file) {
+			if ((m_fd = ::open(m_file->path().c_str(), O_RDWR)) < 0)
+				throw FileException("could not open file");
+		}
+		Writer(Writer&& other) : m_fd(other.m_fd), m_file(other.m_file) {
+			other.m_fd = -1;
+		}
+
+		void write_from(int fd) {
+			write_from(fd, m_file->chunks_total() - m_file->chunks_done());
+		}
+
+		void write_from(int fd, uint64_t chunks) {
+
+			int pipe_write, pipe_read;
+			auto s = session::current();
+
+			pipe_read = s->m_pipefds[0];
+			pipe_write = s->m_pipefds[1];
+
+			int ret;
+			int total_left = m_file->size() - m_file->chunks_done()*4096;
+			int total_requested = chunks*4096;
+			int total = total_requested > total_left ? total_left : total_requested;
+			while (total) {
+				ret = ::splice(fd, NULL, pipe_write, NULL, total, SPLICE_F_MOVE);
+				if (ret == -1)
+					throw FileException("could not splice from socket");
+				::splice(pipe_read, NULL, m_fd, NULL, ret, SPLICE_F_MOVE);
+				total -= ret;
+			}
+			
+			m_file->m_chunks += chunks;
+		}
+
+		~Writer() {
+			if (m_fd >= 0) 
+				::close(m_fd);
+		}
+	protected:
+		int m_fd;
+		std::shared_ptr<File> m_file;
+	private:
+		Writer() = delete;
+		Writer(const Reader& other) = delete;
+		Writer& operator=(const Writer& other) = delete;
 	};
 }
 }

@@ -9,9 +9,10 @@ namespace smart {
 	public:
 		PlanRaw(std::vector<std::shared_ptr<fs::File>> files);
 		virtual uint64_t id() const;
-		virtual void send(int fd) = 0;
-		virtual void recv(int fd) = 0;
+		virtual void send(int fd);
+		virtual void recv(int fd);
 	private:
+		PlanRaw() = delete;
 		std::vector<std::shared_ptr<fs::File>>::iterator m_current;
 	};
 }

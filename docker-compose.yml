@@ -2,7 +2,7 @@ version: '2'
 
 services:
     ssyncd:
-        build: .
+        build: ./docker
         ports: 
             - "8130:8130"
         volumes:

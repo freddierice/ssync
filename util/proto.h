@@ -17,6 +17,7 @@ namespace util {
 	class Proto {
 	public:
 		Proto(int fd);
+		Proto(int readfd, int writefd);
 		~Proto();
 		
 		// send/recv a protobuf, recv returns true if a message is returned.
@@ -37,7 +38,8 @@ namespace util {
 		// disconnect and throw
 		[[ noreturn]] void disconnect(const std::string& msg);
 
-		int m_fd;
+		int m_read_fd;
+		int m_write_fd;
 		uint32_t m_recvBufferLen, m_sendBufferLen;
 		char *m_recvBuffer, *m_sendBuffer;
 		char *m_recvBufferIter;

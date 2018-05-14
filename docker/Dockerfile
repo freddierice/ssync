@@ -22,4 +22,4 @@ RUN useradd -m user
 USER user
 WORKDIR /wd
 ENTRYPOINT ["/usr/local/bin/dumb-init", "--"]
-CMD ["bash", "-c", "make"]
+CMD ["/code/ssyncd"]

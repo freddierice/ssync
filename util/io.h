@@ -33,11 +33,26 @@ namespace util {
 	inline int write_full(int fd, const void* buffer, int len) {
 		int ret, total = 0;
 		do {
-again:
 			if ((ret = write(fd, reinterpret_cast<const char *>(buffer)+total, 
 							len - total)) < 0) {
-				if (errno == EINTR || errno == EAGAIN)
-					goto again;
+				if (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK)
+					continue;
+				return ret;
+			}
+			total += ret;
+		} while (len != total);
+
+		return total;
+	}
+
+	template <typename F>
+	inline int write_full(F f, const void* buffer, int len) {
+		int ret, total = 0;
+		do {
+			if ((ret = f(reinterpret_cast<const char *>(buffer)+total,
+							len - total)) < 0) {
+				if (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK)
+					continue;
 				return ret;
 			}
 			total += ret;

@@ -23,17 +23,22 @@ namespace net {
 		
 		class SSHChannel : public util::ReaderWriter {
 			public:
-				SSHChannel(LIBSSH2_SESSION *session, const std::string& cmd);
-				SSHChannel(LIBSSH2_SESSION *session, const std::string& host,
+				SSHChannel(int socket, LIBSSH2_SESSION *session, const std::string& cmd);
+				SSHChannel(int socket, LIBSSH2_SESSION *session, const std::string& host,
 						int port);
+				SSHChannel(SSHChannel &&);
 				~SSHChannel();
 				virtual int read(void *buffer, int len);
 				virtual int write(const void *buffer, int len);
 				virtual bool open();
+				int socket();
 			protected:
 				LIBSSH2_CHANNEL *m_channel;
 			private:
 				SSHChannel() = delete;
+				SSHChannel(const SSHChannel&) = delete;
+				SSHChannel& operator=(const SSHChannel&) = delete;
+				int m_socket;
 
 		};
 		friend SSHChannel;

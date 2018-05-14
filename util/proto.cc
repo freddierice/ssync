@@ -9,7 +9,7 @@
 namespace ssync {
 namespace util {
 
-Proto::Proto(int fd) : m_fd(fd), m_recvBufferLen(4096), m_sendBufferLen(4096),
+Proto::Proto(int fd) : m_read_fd(fd), m_write_fd(fd), m_recvBufferLen(4096), m_sendBufferLen(4096),
 	m_recvBuffer(new char[m_recvBufferLen]),
 	m_sendBuffer(new char[m_sendBufferLen]),
 	m_recvBufferIter(m_recvBuffer), m_recvLen(0), m_connected(true) {
@@ -18,8 +18,11 @@ Proto::Proto(int fd) : m_fd(fd), m_recvBufferLen(4096), m_sendBufferLen(4096),
 	struct timeval tv;
 	tv.tv_sec = 3;
 	tv.tv_usec = 100000;
-	if (setsockopt(m_fd, SOL_SOCKET, SO_RCVTIMEO, (const char *)&tv, sizeof(struct timeval)) < 0)
+	if (setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, (const char *)&tv, sizeof(struct timeval)) < 0)
 		throw ProtoException("could not set timeout on socket");
+}
+
+Proto::Proto(int read_fd, int write_fd) : m_read_fd(read_fd), m_write_fd(write_fd) {
 }
 
 Proto::~Proto() {
@@ -46,7 +49,7 @@ void Proto::sendMessage(google::protobuf::Message &message) {
 
 	// write the length of the message
 	len = message.ByteSize();
-	if (write_full(m_fd, (const char *)&len, sizeof(len)) < 0)
+	if (write_full(m_write_fd, (const char *)&len, sizeof(len)) < 0)
 		disconnect("could not write length of message");
 	
 	if (len > m_sendBufferLen) {
@@ -56,7 +59,7 @@ void Proto::sendMessage(google::protobuf::Message &message) {
 	}
 	if (!message.SerializeToArray(m_sendBuffer, (int)len))
 		disconnect("could not write message to an array");
-	if (write_full(m_fd, (const char *)m_sendBuffer, (int)len) < 0)
+	if (write_full(m_write_fd, (const char *)m_sendBuffer, (int)len) < 0)
 		disconnect("could not write message to the wire");
 }
 
@@ -67,7 +70,7 @@ bool Proto::recvMessage(google::protobuf::Message &message) {
 
 	if (m_recvLen == 0) {
 again1:
-		if ((ret = ::read(m_fd, m_recvBufferIter, 
+		if ((ret = ::read(m_read_fd, m_recvBufferIter, 
 						4 + m_recvBuffer - m_recvBufferIter)) < 0) {
 			if (errno == EINTR)
 				goto again1;
@@ -85,7 +88,7 @@ again1:
 	}
 		
 again2:
-	if ((ret = ::read(m_fd, m_recvBufferIter, 
+	if ((ret = ::read(m_read_fd, m_recvBufferIter, 
 					m_recvLen + m_recvBuffer - m_recvBufferIter)) < 0) {
 		if (errno == EINTR)
 			goto again2;

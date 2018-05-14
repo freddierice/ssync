@@ -1,3 +1,5 @@
 *.o
 *.pb.*
 *.swp
+ssync
+ssyncd
