@@ -3,3 +3,6 @@
 *.swp
 ssync
 ssyncd
+
+# do not upload keys
+*.pem
