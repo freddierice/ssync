@@ -47,12 +47,14 @@ int main(int argc, const char *argv[]) try {
 	// shutdown in a safe way
 	std::signal(SIGINT, signal_shutdown);
 
-	console->info("starting");
+	console->info("starting server");
 	net::Server server;
+	console->info("accepting");
 	while (!shutdown) {
 		// try to accept a client
 		try {
-			std::thread thr(handle_client, server.accept());
+			auto conn = server.accept();
+			std::thread thr(handle_client, conn);
 			thr.detach(); // XXX: resource leak
 		} catch (net::ServerTimeoutException &ex) {}
 	}
