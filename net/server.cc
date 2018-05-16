@@ -61,6 +61,8 @@ namespace net {
 		SSL *ssl = SSL_new(m_ctx);
 		if (!ssl)
 			throw ServerException("could not create SSL");
+		
+		SSL_set_fd(ssl, fd);
 		if (SSL_accept(ssl) <= 0)
 			throw ServerException("could not accept client");
 		
