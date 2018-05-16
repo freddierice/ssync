@@ -37,6 +37,9 @@ namespace net {
 		addr.sin_port = htons(m_config.m_port);
 		inet_pton(AF_INET, m_config.m_host.c_str(), &addr.sin_addr);
 
+		console->info("client: connecting to {}:{}", m_config.m_host,
+				m_config.m_port);
+
 		if ((m_fd = socket(AF_INET, SOCK_STREAM, 0)) < 0)
 			throw ClientException("could not create socket");
 
