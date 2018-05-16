@@ -69,8 +69,8 @@ namespace net {
 			SSL_CTX_free(m_ctx);
 		if (m_ssl)
         	SSL_free(m_ssl);
-		if (m_bio)
-			BIO_free(m_bio);
+		// if (m_bio)
+		// 	BIO_free(m_bio);
         ::close(m_fd);
 	}
 
