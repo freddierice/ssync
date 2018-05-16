@@ -1,2 +1,7 @@
 #!/bin/bash
-docker-compose run -p 3130:3130 ssyncd ./ssyncd
+
+if [ ! -d server_data ]; then
+	mkdir -p server_data;
+fi
+
+docker-compose run -v $(pwd)/server_data:/data -p 3130:3130 ssyncd ./ssyncd $@

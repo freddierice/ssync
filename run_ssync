@@ -1,2 +1,7 @@
 #!/bin/bash
-docker-compose run ssyncd ./ssync $@
+
+if [ ! -d client_data ]; then
+	mkdir -p client_data;
+fi
+
+docker-compose run -v $(pwd)/client_data:/data ssyncd ./ssync $@
