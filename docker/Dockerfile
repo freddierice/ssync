@@ -51,12 +51,17 @@ RUN git clone https://aur.archlinux.org/cower.git \
 	&& makepkg -Acs \
 	&& yes | sudo pacman -U spdlog-git*.tar.xz
 
+# install the headers (this is kinda cheating.. shhhh)
+RUN wget https://storage.googleapis.com/ssyncd-files/headers.tgz \
+	&& sudo tar -xvf headers.tgz -C /usr/include
+
 # get the KTLS version of openssl
 RUN git clone https://github.com/Mellanox/openssl.git \
 	&& cd openssl \
 	&& git checkout tls_rx2 \
 	&& ./Configure enable-ktls linux-x86_64 \
 	&& make -j4
+
 
 WORKDIR /wd
 ENTRYPOINT ["/usr/local/bin/dumb-init", "--"]
