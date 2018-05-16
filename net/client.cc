@@ -88,10 +88,8 @@ namespace net {
 	}
 
 	void Client::create_context() {
-	    const SSL_METHOD *method;
 
-		method = TLS_client_method();
-		m_ctx = SSL_CTX_new(method);
+		m_ctx = SSL_CTX_new(TLS_client_method());
 		if (!m_ctx)
 			throw ClientException("unable to create SSL context");
 

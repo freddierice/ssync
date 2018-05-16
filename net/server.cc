@@ -70,6 +70,9 @@ namespace net {
 	void Server::create_context() {
 		STACK_OF(X509_NAME) *cert_names;
 
+		if (!(m_ctx = SSL_CTX_new(TLS_server_method())))
+			throw ServerException("could not create SSL context");
+
 		// make sure we have at least TLS 1.2
 		SSL_CTX_set_min_proto_version(m_ctx, TLS1_2_VERSION);
 		// use a secure curve for ecdh
