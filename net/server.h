@@ -29,9 +29,9 @@ namespace net {
 			constexpr static const int DEFAULT_TIMEOUT_SEC = 1;
 			constexpr static const int DEFAULT_TIMEOUT_USEC = 0;
 			constexpr static const int DEFAULT_MAX_CONNECTIONS = 5;
-			constexpr static auto DEFAULT_CA = "ca.pem";
-			constexpr static auto DEFAULT_CERT = "server.pem";
-			constexpr static auto DEFAULT_KEY = "server-key.pem";
+			constexpr static auto DEFAULT_CA = "/data/ca.pem";
+			constexpr static auto DEFAULT_CERT = "/data/server.pem";
+			constexpr static auto DEFAULT_KEY = "/data/server-key.pem";
 		public:
 			Config() : m_port(DEFAULT_PORT), m_host(DEFAULT_HOST),
 				m_timeout(), m_max_connections(DEFAULT_MAX_CONNECTIONS),

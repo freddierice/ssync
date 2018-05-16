@@ -14,9 +14,9 @@ namespace net {
 		public:
 			constexpr static const int DEFAULT_PORT = 3130;
 			constexpr static auto DEFAULT_HOST = "127.0.0.1";
-			constexpr static auto DEFAULT_CA   = "ca.pem";
-			constexpr static auto DEFAULT_CERT = "client.pem";
-			constexpr static auto DEFAULT_KEY = "client-key.pem";
+			constexpr static auto DEFAULT_CA   = "/data/ca.pem";
+			constexpr static auto DEFAULT_CERT = "/data/client.pem";
+			constexpr static auto DEFAULT_KEY = "/data/client-key.pem";
 
 		public:
 			Config() : m_port(DEFAULT_PORT), m_ca(DEFAULT_CA),
