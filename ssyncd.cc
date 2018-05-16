@@ -32,6 +32,18 @@ void handle_client(std::shared_ptr<net::Connection>);
 int main(int argc, const char *argv[]) try {
 	using namespace ssync::log;
 
+	/*
+	int port = 0;
+	if (argc > 1) {
+		try {
+			port = std::stoi(std::string(argv[1]));
+		} catch (std::invalid_argument& ex) {
+			console->error("invalid port number");
+			return 1;
+		}
+	}
+	*/
+
 	// shutdown in a safe way
 	std::signal(SIGINT, signal_shutdown);
 
