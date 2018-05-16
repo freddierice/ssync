@@ -29,10 +29,10 @@ int main(int argc, const char *argv[]) {
 	}
 
 	int port;
-	std::string servername;
+	std::string server_name;
 	std::string server_string = std::string(argv[1]);
 	try {
-		util::parse_server(server_string, servername, port);
+		util::parse_server(server_string, server_name, port);
 	} catch (util::ParseException &ex) {
 		std::cerr << ex.what() << std::endl;
 		return 1;
@@ -51,11 +51,11 @@ int main(int argc, const char *argv[]) {
 	for (int i = 1; i < argc-1; i++) {
 		auto p = std::experimental::filesystem::path(argv[i]);
 		locals.push_back(target / p.filename());
-		*file_list.add_files() = p.string();
+		file_list.add_files(p.string());
 	}
 
 	net::Client::Config client_config;
-	client_config.set_host(servername.c_str());
+	client_config.set_host(server_name.c_str());
 	if (port != -1)
 		client_config.set_port(port);
 
