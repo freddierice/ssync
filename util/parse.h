@@ -16,7 +16,7 @@ namespace util {
 			const std::string m_msg;
 	};
 
-	void parse_server(const std::string& s, std::string& username, std::string& server);
+	void parse_server(const std::string& s, std::string& server, int& port);
 }
 }
 

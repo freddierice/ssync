@@ -24,14 +24,15 @@ int main(int argc, const char *argv[]) {
 
 	if (argc <= 3) {
 		std::cerr << "usage: " << argv[0] << 
-			" <user@server[:port]> <list of files> ... <target or target dir>" << std::endl;
+			" <server[:port]> <list of files> ... <target or target dir>" << std::endl;
 		return 1;
 	}
 
-	std::string username, servername;
+	int port;
+	std::string servername;
 	std::string server_string = std::string(argv[1]);
 	try {
-		util::parse_server(server_string, username, servername);
+		util::parse_server(server_string, servername, port);
 	} catch (util::ParseException &ex) {
 		std::cerr << ex.what() << std::endl;
 		return 1;
@@ -53,8 +54,25 @@ int main(int argc, const char *argv[]) {
 		*file_list.add_files() = p.string();
 	}
 
-	console->info("connecting to server");
-	net::Client client;
+	net::Client::Config client_config;
+	client_config.set_host(servername.c_str());
+	if (port != -1)
+		client_config.set_port(port);
+
+	try {
+		console->info("connecting to server");
+		net::Client client(client_config);
+		auto conn = client.conn();
+		
+		console->info("sending files");
+		conn->sendMessage(command);
+		
+		command.Clear();
+
+	} catch (net::ClientException &ex) {
+		console->error("caught client exception: {}", ex.what());
+		return 1;
+	}
 
 	/*
 	try {
