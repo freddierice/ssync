@@ -48,7 +48,6 @@ namespace net {
 		int m_fd, m_rfd, m_wfd;
 		SSL_CTX *m_ctx;
 		SSL *m_ssl;
-		BIO *m_bio;
 		std::shared_ptr<net::Connection> m_conn;
 		
 		void create_context();

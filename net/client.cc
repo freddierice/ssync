@@ -20,9 +20,9 @@ namespace net {
 
 	Client::Client() : Client(Config()) {}
 	Client::Client(const Config& config) : m_config(config), m_fd(-1),
-	m_rfd(-1), m_wfd(-1), m_ctx(NULL), m_ssl(NULL), m_bio(NULL),
-	m_conn(nullptr){
+	m_rfd(-1), m_wfd(-1), m_ctx(NULL), m_ssl(NULL), m_conn(nullptr){
 	
+		BIO* bio;
     	struct sockaddr_in addr;
 
 		// initialize the openssl library if we haven't
@@ -51,8 +51,8 @@ namespace net {
 		create_context();
 		if ((m_ssl = SSL_new(m_ctx)) == NULL)
 			throw ClientException("could not setup SSL");
-		m_bio = BIO_new_socket(m_fd, BIO_NOCLOSE);
-		SSL_set_bio(m_ssl, m_bio, m_bio);
+		bio = BIO_new_socket(m_fd, BIO_NOCLOSE);
+		SSL_set_bio(m_ssl, bio, bio);
     
 		if (SSL_connect(m_ssl) <= 0)
 			throw ClientException("could not complete handshake");
@@ -69,8 +69,6 @@ namespace net {
 			SSL_CTX_free(m_ctx);
 		if (m_ssl)
         	SSL_free(m_ssl);
-		// if (m_bio)
-		// 	BIO_free(m_bio);
         ::close(m_fd);
 	}
 
