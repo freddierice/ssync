@@ -25,7 +25,7 @@ namespace net {
 		class Config {
 		public:
 			constexpr static const int DEFAULT_PORT = 3130;
-			constexpr static auto DEFAULT_HOST = "127.0.0.1";
+			constexpr static auto DEFAULT_HOST = "0.0.0.0";
 			constexpr static const int DEFAULT_TIMEOUT_SEC = 1;
 			constexpr static const int DEFAULT_TIMEOUT_USEC = 0;
 			constexpr static const int DEFAULT_MAX_CONNECTIONS = 5;
