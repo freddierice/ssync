@@ -20,7 +20,7 @@ namespace net {
 	Client::Client() : Client(Config()) {}
 	Client::Client(const Config& config) : m_config(config), m_fd(-1),
 	m_rfd(-1), m_wfd(-1), m_ctx(NULL), m_ssl(NULL), m_bio(NULL),
-	m_proto(nullptr){
+	m_conn(nullptr){
 	
     	struct sockaddr_in addr;
 
@@ -57,7 +57,7 @@ namespace net {
 		// descriptors pointing toward the SOL_ULP sockets.
 		BIO_get_fd(SSL_get_rbio(m_ssl), &m_rfd);
 		BIO_get_fd(SSL_get_wbio(m_ssl), &m_wfd);
-		m_proto = std::make_shared<util::Proto>(m_rfd, m_wfd);
+		m_conn = std::make_shared<net::Connection>(m_rfd, m_wfd);
 	}
 
 	Client::~Client() {
@@ -68,6 +68,10 @@ namespace net {
 		if (m_bio)
 			BIO_free(m_bio);
         ::close(m_fd);
+	}
+
+	std::shared_ptr<net::Connection> Client::conn() {
+		return m_conn;
 	}
 
 	void Client::init_openssl() { 
@@ -109,6 +113,5 @@ namespace net {
 			throw ClientException("unable to read client key");
 	}
 		// ERR_print_errors_fp(stderr);
-
 }
 }

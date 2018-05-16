@@ -2,7 +2,7 @@
 
 namespace ssync {
 namespace smart {
-	Executor::Executor(int fd) : m_fd(fd) {}
+	Executor::Executor(std::shared_ptr<net::Connection> conn) : m_conn(conn) {}
 
 	Stats Executor::execute(std::shared_ptr<Plan> plan) {
 		return Stats();

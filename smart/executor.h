@@ -4,6 +4,7 @@
 #include "util/exception.h"
 #include "smart/stats.h"
 #include "smart/plan.h"
+#include "net/connection.h"
 
 namespace ssync {
 namespace smart {
@@ -12,13 +13,13 @@ namespace smart {
 
 	class Executor {
 	public:
-		Executor(int fd);
+		Executor(std::shared_ptr<net::Connection> conn);
 		
 		Stats execute(std::shared_ptr<Plan> plan);
 	private:
 		Executor() = delete;
 
-		int m_fd;
+		std::shared_ptr<net::Connection> m_conn;
 	};
 }
 }

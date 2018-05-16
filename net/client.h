@@ -1,10 +1,9 @@
 #ifndef __CLIENT_H__
 #define __CLIENT_H__
 #include "util/exception.h"
-#include "net/SSH.h"
 #include <openssl/ssl.h>
 
-#include "util/proto.h"
+#include "net/connection.h"
 
 namespace ssync {
 namespace net {
@@ -23,6 +22,12 @@ namespace net {
 			Config() : m_port(DEFAULT_PORT), m_ca(DEFAULT_CA),
 			m_cert(DEFAULT_CERT), m_host(DEFAULT_HOST),
 		   		 m_key(DEFAULT_KEY) {}
+
+			void set_port(int port) { m_port = port; }
+			void set_host(const std::string& host) { m_host = host; }
+			void set_ca(const std::string& ca) { m_ca = ca; }
+			void set_cert(const std::string& cert) { m_cert = cert; }
+			void set_key(const std::string& key) { m_key = key; }
 		protected:
 			friend Client;
 			int m_port;
@@ -36,7 +41,7 @@ namespace net {
 		Client(const Config& config);
 		~Client();
 
-		std::shared_ptr<util::Proto> get_proto();
+		std::shared_ptr<net::Connection> conn();
 
 	private:
 		Config m_config;
@@ -44,7 +49,7 @@ namespace net {
 		SSL_CTX *m_ctx;
 		SSL *m_ssl;
 		BIO *m_bio;
-		std::shared_ptr<util::Proto> m_proto;
+		std::shared_ptr<net::Connection> m_conn;
 		
 		void create_context();
 		

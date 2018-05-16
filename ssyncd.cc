@@ -11,7 +11,6 @@
 #include "net/server.h"
 #include "net/SSH.h"
 #include "util/parse.h"
-#include "util/proto.h"
 #include "log/log.h"
 #include "proto/command.pb.h"
 #include "fs/file.h"
@@ -28,7 +27,7 @@ using namespace ssync;
 std::atomic<bool> shutdown(false);
 
 void signal_shutdown(int sig);
-void handle_client(int fd);
+void handle_client(std::shared_ptr<net::Connection>);
 
 int main(int argc, const char *argv[]) try {
 	using namespace ssync::log;
@@ -41,8 +40,7 @@ int main(int argc, const char *argv[]) try {
 	while (!shutdown) {
 		// try to accept a client
 		try {
-			int fd = server.accept();
-			std::thread thr(handle_client, fd);
+			std::thread thr(handle_client, server.accept());
 			thr.detach(); // XXX: resource leak
 		} catch (net::ServerTimeoutException &ex) {}
 	}
@@ -61,16 +59,15 @@ void signal_shutdown(int sig) {
 	shutdown = true;
 }
 
-void handle_client(int fd) try {
+void handle_client(std::shared_ptr<net::Connection> conn) try {
 	using namespace ssync::log;
 	session::create();
 
-	console->info("accepted {}", fd);
-	util::Proto proto(fd);
+	console->info("accepted client");
 
 	// get a FileList
 	proto::Command command;
-	while (!proto.recvMessage(command)) {}
+	while (!conn->recvMessage(command)) {}
 	if (command.type() != proto::Command::FILE_LIST)
 		throw std::runtime_error("client should have sent a file list");
 	
@@ -89,13 +86,12 @@ void handle_client(int fd) try {
 
 	// create the planner
 	smart::Planner planner(info);
-	smart::Executor executor(fd);
+	smart::Executor executor(conn);
 	while (!planner.empty()) {
 		// smart::Stats stats = executor.execute(planner.next());
 	}
 
-	close(fd);
-} catch (util::ProtoException &ex) {
+} catch (net::ConnectionException &ex) {
 	log::console->error("proto exception: {}", ex.what());
 } catch (std::runtime_error &ex) {
 	log::console->error("runtime exception: {}", ex.what());

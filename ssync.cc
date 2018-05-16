@@ -10,9 +10,8 @@ namespace filesystem = std::experimental::filesystem;
 
 #include "net/SSH.h"
 #include "net/client.h"
-#include "net/server.h"
+#include "net/connection.h"
 #include "util/parse.h"
-#include "util/proto.h"
 #include "proto/command.pb.h"
 #include "log/log.h"
 
@@ -53,6 +52,9 @@ int main(int argc, const char *argv[]) {
 		locals.push_back(target / p.filename());
 		*file_list.add_files() = p.string();
 	}
+
+	console->info("connecting to server");
+	net::Client client;
 
 	/*
 	try {

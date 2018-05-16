@@ -10,15 +10,15 @@
 #include "util/exception.h"
 
 namespace ssync {
-namespace util {
+namespace net {
 
-	SSYNC_EXCEPTION(SSyncException, ProtoException);
+	SSYNC_EXCEPTION(util::SSyncException, ConnectionException);
 
-	class Proto {
+	class Connection {
 	public:
-		Proto(int fd);
-		Proto(int readfd, int writefd);
-		~Proto();
+		Connection(int fd);
+		Connection(int readfd, int writefd);
+		~Connection();
 		
 		// send/recv a protobuf, recv returns true if a message is returned.
 		void sendMessage(google::protobuf::Message& message);
@@ -33,7 +33,7 @@ namespace util {
 
 	private:
 		// no default constructor, only valid with connection.
-		Proto() = delete;
+		Connection() = delete;
 
 		// disconnect and throw
 		[[ noreturn]] void disconnect(const std::string& msg);
