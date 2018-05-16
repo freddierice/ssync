@@ -67,6 +67,7 @@ int main(int argc, const char *argv[]) {
 		console->info("sending files");
 		conn->sendMessage(command);
 		
+		console->info("clearing");
 		command.Clear();
 
 	} catch (net::ClientException &ex) {
