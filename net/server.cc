@@ -8,6 +8,7 @@
 #include <openssl/ssl.h>
 
 #include "net/server.h"
+#include "log/log.h"
 
 namespace ssync {
 namespace net {
@@ -17,10 +18,13 @@ namespace net {
 		struct sockaddr_in addr;
 		int one = 1;
 
+		log::console->info("serving on {}:{}", m_config.m_host,
+				m_config.m_port);
+
 		memset(&addr, 0, sizeof(addr));
 		addr.sin_family = AF_INET;
-		addr.sin_port = htons(config.m_port);
-		if (inet_pton(AF_INET, config.m_host.c_str(), &(addr.sin_addr)) != 1)
+		addr.sin_port = htons(m_config.m_port);
+		if (inet_pton(AF_INET, m_config.m_host.c_str(), &(addr.sin_addr)) != 1)
 			throw ServerException("bad ip address");
 
 		if ((m_fd = socket(AF_INET, SOCK_STREAM, 0)) < 0)
