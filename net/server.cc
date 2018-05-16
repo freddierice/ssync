@@ -33,6 +33,7 @@ namespace net {
 		if (listen(m_fd, config.m_max_connections) < 0)
 			throw ServerException("could not start listening on socket");
 		
+		create_context();
 		// TODO: play around with non-blocking
 		// set socket non blocking
 		/*
