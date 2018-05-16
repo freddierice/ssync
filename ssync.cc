@@ -54,6 +54,7 @@ int main(int argc, const char *argv[]) {
 		*file_list.add_files() = p.string();
 	}
 
+	/*
 	try {
 		console->info("logging into {}@{}", username, servername);
 		net::SSH ssh(username, servername);
@@ -73,17 +74,16 @@ int main(int argc, const char *argv[]) {
 		
 		console->info("joining with proxy");
 		thr.join();
-		/*
 		while (chan->open()) {
 			int i = chan->read(static_cast<void *>(buffer), sizeof(buffer));
 			if (i > 0) 
 				std::cerr << "read " << i << std::endl;
 		}
-		*/
 	} catch (net::SSHException &ex) {
 		std::cerr << ex.what() << std::endl;
 		return 1;
 	}
+	*/
 	
 	return 0;
 }

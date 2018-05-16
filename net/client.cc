@@ -1,144 +1,99 @@
-#include <atomic>
-#include <future>
-#include <condition_variable> 
-#include <mutex>
-
-#include <linux/tcp.h>
+#include <stdio.h>
 #include <unistd.h>
-#include <poll.h>
 #include <sys/socket.h>
-#include <sys/types.h>
-#include <netinet/in.h>
-// #include <linux/tcp.h>
-#include <netdb.h>
-#include <errno.h>
 #include <arpa/inet.h>
+#include <openssl/ssl.h>
+#include <openssl/err.h>
+#include <cstring>
 
 #include "net/client.h"
-#include "util/io.h"
-#include "log/log.h"
-
 
 namespace ssync {
 namespace net {
-	void create_proxy(int& client_fd, int& proxy_fd) {
-		struct sockaddr_in client_addr;
-		struct sockaddr_in server_addr;
-		int one = 1;
 
-		memset(&client_addr, 0, sizeof(client_addr));
-		client_addr.sin_family = AF_INET;
-		client_addr.sin_port = htons(3131);
-		inet_pton(AF_INET, "127.0.0.1", &client_addr.sin_addr);
-		
-		memset(&server_addr, 0, sizeof(server_addr));
-		server_addr.sin_family = AF_INET;
-		server_addr.sin_port = htons(3131);
-		inet_pton(AF_INET, "127.0.0.1", &server_addr.sin_addr);
+	Client::Client() : Client(Config()) {}
+	Client::Client(const Config& config) : m_config(config), m_fd(-1),
+   		m_ctx(NULL) {
+    	struct sockaddr_in addr;
 
-		std::atomic<bool> accepting(false);
-		
-		std::thread thr([&] {
-				if ((proxy_fd = socket(AF_INET, SOCK_STREAM, 0)) == -1)
-					throw ClientException("could not create socket");
-				if (setsockopt(proxy_fd, SOL_SOCKET, SO_REUSEADDR, (char *)&one,
-							sizeof(one)) < 0)
-					throw ClientException("could not set SO_REUSEADDR");
-				if (bind(proxy_fd, (struct sockaddr *)&server_addr,
-							sizeof(server_addr)) < 0)
-					throw ClientException("could not bind");
-				if (listen(proxy_fd, 1) < 0)
-					return;
-				accepting = true;
-				proxy_fd = accept(proxy_fd, NULL, NULL);
-				accepting = false;
-			});
-		
-		if ((client_fd = socket(AF_INET, SOCK_STREAM, 0)) == -1)
+		addr.sin_family = AF_INET;
+		addr.sin_port = htons(m_config.m_port);
+		inet_pton(AF_INET, m_config.m_host.c_str(), &addr.sin_addr);
+
+		if ((m_fd = socket(AF_INET, SOCK_STREAM, 0)) < 0)
 			throw ClientException("could not create socket");
-		if (connect(client_fd, (const struct sockaddr *)&client_addr, sizeof(struct sockaddr_in)))
-			throw ClientException("could not connect");
 
-		// join with the thread.
-		thr.join();
+		if (connect(m_fd, (const struct sockaddr *)&addr,
+					sizeof(struct sockaddr_in)) == -1)
+			throw ClientException("could not connect");
+		
+		m_ctx = create_context();
+		if ((m_ssl = SSL_new(m_ctx)) == NULL)
+			throw ClientException("could not setup SSL");
+
+		SSL_set_fd(m_ssl, m_fd);
+    
+		if (SSL_connect(m_ssl) <= 0)
+			throw ClientException("could not complete handshake");
+
 	}
 
-	void run_proxy(int fd, std::shared_ptr<SSH::SSHChannel> chan) {
-		char *buffer_local, *buffer_remote;
-		int idx_local_start, idx_local_end;
-		int idx_remote_start, idx_remote_end;
-		struct tcp_info ti;
-		int buffer_len;
-		int ret;
-		socklen_t len = sizeof(struct tcp_info);
-		if (getsockopt(chan->socket(), IPPROTO_TCP, TCP_INFO, &ti, &len) == -1)
-			throw ClientException("could not get tcpinfo");
+	Client::~Client() {
+		if (m_ctx)
+			SSL_CTX_free(m_ctx);
+		if (m_ssl)
+        	SSL_free(m_ssl);
+        ::close(m_fd);
+	}
 
-		// proxy the ssh connection
-		buffer_len = ti.tcpi_snd_mss > ti.tcpi_rcv_mss ? ti.tcpi_snd_mss : ti.tcpi_rcv_mss;
-		buffer_local = new char(buffer_len);
-		buffer_remote = new char(buffer_len);
+	void Client::init_openssl() { 
+		SSL_load_error_strings();	
+		OpenSSL_add_ssl_algorithms();
+	}
 
-		struct pollfd fds[2];
-		fds[0].fd = fd;
-		fds[0].events = POLLIN | POLLOUT | POLLWRBAND;
-		fds[1].fd = chan->socket();
-		fds[1].events = POLLIN | POLLOUT | POLLWRBAND;
+	void Client::cleanup_openssl() {
+		// EVP_cleanup();
+	}
 
-		idx_local_start = idx_remote_start = 0;
-		idx_local_end = idx_remote_end = 0;
-		for (;;) {
-			ret = poll(fds, 2, -1);
-			if (ret == -1) {
-				if (errno == EINTR)
-					continue;
-				throw ClientException("could not poll for file descriptors");
-			}
-			
-			if (fds[0].revents & POLLIN && idx_local_start == 0 
-					&& idx_local_end < buffer_len) {
-				log::console->info("read_fd");
-				ret = ::read(fd, buffer_local + idx_local_end,
-						buffer_len - idx_local_end);
-				if (ret > 0)
-					idx_local_end += ret;
-			}
+	SSL_CTX *Client::create_context() {
+	    const SSL_METHOD *method;
+	    SSL_CTX *ctx;
 
-			if (fds[1].revents & POLLIN && idx_remote_start == 0
-					&& idx_remote_end < buffer_len) {
-				log::console->info("chan_fd");
-				ret = chan->read(buffer_remote+idx_remote_end,
-						buffer_len-idx_remote_end);
-				if (ret > 0)
-					idx_remote_end += ret;
-			}
-									
-			if (idx_remote_end && (POLLOUT | POLLWRBAND) & fds[1].revents) {
-				ret = ::write(fd, buffer_remote+idx_remote_start,
-						idx_remote_end - idx_remote_start);
-				if (ret > 0) {
-					idx_remote_start += ret;
-					if (idx_remote_start == idx_remote_end)
-						idx_remote_start = idx_remote_end = 0;
-				}
-			}
+		method = TLS_client_method();
+		ctx = SSL_CTX_new(method);
+		if (!ctx)
+			throw ClientException("unable to create SSL context");
+		// ERR_print_errors_fp(stderr);
 
-			if (idx_local_end && (POLLOUT | POLLWRBAND) & fds[1].revents) {
-				ret = chan->write(buffer_local + idx_local_start,
-						idx_local_end - idx_local_start);
-				if (ret > 0) {
-					idx_local_start += ret;
-					if (idx_local_start == idx_local_end)
-						idx_local_start = idx_local_end;
-				}
-			}
+		SSL_CTX_set_min_proto_version(ctx, TLS1_2_VERSION);
+		SSL_CTX_set_ecdh_auto(ctx, 1);
 
-			if (fds[0].revents & POLLHUP || fds[1].revents & POLLHUP)
-				break;
+		STACK_OF(X509_NAME) *cert_names;
+
+		// make sure we verify the server
+		SSL_CTX_set_verify(ctx, SSL_VERIFY_PEER, NULL);
+
+		// set the ca
+		SSL_CTX_load_verify_locations(ctx, "ca.pem", NULL);
+		cert_names = SSL_load_client_CA_file("ca.pem");
+		if (cert_names == NULL) {
+			ERR_print_errors_fp(stderr);
+			exit(EXIT_FAILURE);
+		}
+		SSL_CTX_set_client_CA_list(ctx, cert_names);
+
+		if (SSL_CTX_use_certificate_file(ctx, "client.pem", SSL_FILETYPE_PEM) <= 0) {
+			ERR_print_errors_fp(stderr);
+			exit(EXIT_FAILURE);
 		}
 
-		delete buffer_local;
-		delete buffer_remote;
+		if (SSL_CTX_use_PrivateKey_file(ctx, "client-key.pem", SSL_FILETYPE_PEM) <= 0 ) {
+			ERR_print_errors_fp(stderr);
+			exit(EXIT_FAILURE);
+		}
+
+		return ctx;
 	}
+
 }
 }

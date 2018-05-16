@@ -1,0 +1,16 @@
+{
+    "hosts": [
+		"ssync"
+    ],
+    "key": {
+        "algo": "ecdsa",
+        "size": 256
+    },
+    "names": [
+        {
+            "C":  "US",
+            "O":  "ssync",
+            "CN": "ssync"
+        }
+    ]
+}

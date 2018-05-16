@@ -138,7 +138,7 @@ namespace net {
 	SSH::SSHChannel::SSHChannel(int socket, LIBSSH2_SESSION *session,
 			const std::string& host, int port) : m_socket(socket) {
 		log::console->info("socket: {}", port);
-		while (!(m_channel = libssh2_channel_direct_tcpip(session, host.c_str(), port))
+		while (!(m_channel = libssh2_channel_direct_tcpip_ex(session, host.c_str(), port, "127.0.0.1", 3031))
 				&& libssh2_session_last_error(session, NULL, NULL, 0) == LIBSSH2_ERROR_EAGAIN) {}
 		if (!m_channel)
 			throw SSHException("could not open tcpip connection");
