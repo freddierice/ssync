@@ -47,11 +47,11 @@ int main(int argc, const char *argv[]) {
 	std::vector<std::string> locals;
 	proto::Command command;
 	command.set_type(proto::Command::FILE_LIST);
-	auto file_list = command.file_list();
+	auto file_list = command.mutable_file_list();
 	for (int i = 1; i < argc-1; i++) {
 		auto p = std::experimental::filesystem::path(argv[i]);
 		locals.push_back(target / p.filename());
-		file_list.add_files(p.string());
+		file_list->add_files(p.string());
 	}
 
 	net::Client::Config client_config;
