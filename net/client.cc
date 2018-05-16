@@ -1,3 +1,6 @@
+#include <atomic>
+#include <mutex>
+
 #include <stdio.h>
 #include <unistd.h>
 #include <sys/socket.h>
@@ -11,10 +14,24 @@
 namespace ssync {
 namespace net {
 
+	std::atomic<bool> openssl_initialized(false);
+	std::mutex openssl_initialized_mutex;
+
 	Client::Client() : Client(Config()) {}
 	Client::Client(const Config& config) : m_config(config), m_fd(-1),
-   		m_ctx(NULL) {
+	m_rfd(-1), m_wfd(-1), m_ctx(NULL), m_ssl(NULL), m_bio(NULL),
+	m_proto(nullptr){
+	
     	struct sockaddr_in addr;
+
+		// initialize the openssl library if we haven't
+		if (!openssl_initialized) {
+			std::unique_lock<std::mutex> lock(openssl_initialized_mutex);
+			if (!openssl_initialized) {
+				init_openssl();
+				openssl_initialized = true;
+			}
+		}
 
 		addr.sin_family = AF_INET;
 		addr.sin_port = htons(m_config.m_port);
@@ -27,15 +44,20 @@ namespace net {
 					sizeof(struct sockaddr_in)) == -1)
 			throw ClientException("could not connect");
 		
-		m_ctx = create_context();
+		create_context();
 		if ((m_ssl = SSL_new(m_ctx)) == NULL)
 			throw ClientException("could not setup SSL");
-
-		SSL_set_fd(m_ssl, m_fd);
+		m_bio = BIO_new_socket(m_fd, BIO_NOCLOSE);
+		SSL_set_bio(m_ssl, m_bio, m_bio);
     
 		if (SSL_connect(m_ssl) <= 0)
 			throw ClientException("could not complete handshake");
 
+		// now that the handshake is complete, we will have new file
+		// descriptors pointing toward the SOL_ULP sockets.
+		BIO_get_fd(SSL_get_rbio(m_ssl), &m_rfd);
+		BIO_get_fd(SSL_get_wbio(m_ssl), &m_wfd);
+		m_proto = std::make_shared<util::Proto>(m_rfd, m_wfd);
 	}
 
 	Client::~Client() {
@@ -43,6 +65,8 @@ namespace net {
 			SSL_CTX_free(m_ctx);
 		if (m_ssl)
         	SSL_free(m_ssl);
+		if (m_bio)
+			BIO_free(m_bio);
         ::close(m_fd);
 	}
 
@@ -55,45 +79,36 @@ namespace net {
 		// EVP_cleanup();
 	}
 
-	SSL_CTX *Client::create_context() {
+	void Client::create_context() {
 	    const SSL_METHOD *method;
-	    SSL_CTX *ctx;
 
 		method = TLS_client_method();
-		ctx = SSL_CTX_new(method);
-		if (!ctx)
+		m_ctx = SSL_CTX_new(method);
+		if (!m_ctx)
 			throw ClientException("unable to create SSL context");
-		// ERR_print_errors_fp(stderr);
 
-		SSL_CTX_set_min_proto_version(ctx, TLS1_2_VERSION);
-		SSL_CTX_set_ecdh_auto(ctx, 1);
+		SSL_CTX_set_min_proto_version(m_ctx, TLS1_2_VERSION);
+		SSL_CTX_set_ecdh_auto(m_ctx, 1);
 
 		STACK_OF(X509_NAME) *cert_names;
 
 		// make sure we verify the server
-		SSL_CTX_set_verify(ctx, SSL_VERIFY_PEER, NULL);
+		SSL_CTX_set_verify(m_ctx, SSL_VERIFY_PEER, NULL);
 
 		// set the ca
-		SSL_CTX_load_verify_locations(ctx, "ca.pem", NULL);
-		cert_names = SSL_load_client_CA_file("ca.pem");
-		if (cert_names == NULL) {
-			ERR_print_errors_fp(stderr);
-			exit(EXIT_FAILURE);
-		}
-		SSL_CTX_set_client_CA_list(ctx, cert_names);
-
-		if (SSL_CTX_use_certificate_file(ctx, "client.pem", SSL_FILETYPE_PEM) <= 0) {
-			ERR_print_errors_fp(stderr);
-			exit(EXIT_FAILURE);
-		}
-
-		if (SSL_CTX_use_PrivateKey_file(ctx, "client-key.pem", SSL_FILETYPE_PEM) <= 0 ) {
-			ERR_print_errors_fp(stderr);
-			exit(EXIT_FAILURE);
-		}
-
-		return ctx;
+		SSL_CTX_load_verify_locations(m_ctx, m_config.m_ca.c_str(), NULL);
+		cert_names = SSL_load_client_CA_file(m_config.m_ca.c_str());
+		if (cert_names == NULL)
+			throw ClientException("unable to read CA");
+		SSL_CTX_set_client_CA_list(m_ctx, cert_names);
+		if (SSL_CTX_use_certificate_file(m_ctx, m_config.m_cert.c_str(),
+					SSL_FILETYPE_PEM) <= 0)
+			throw ClientException("unable to read client cert");
+		if (SSL_CTX_use_PrivateKey_file(m_ctx, m_config.m_key.c_str(),
+					SSL_FILETYPE_PEM) <= 0 )
+			throw ClientException("unable to read client key");
 	}
+		// ERR_print_errors_fp(stderr);
 
 }
 }
