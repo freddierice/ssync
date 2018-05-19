@@ -21,7 +21,7 @@ namespace net {
 		SSH(const std::string& username, const std::string& ip, int port = 22);
 		~SSH();
 		
-		class SSHChannel : public util::ReaderWriter {
+		class SSHChannel /*: public util::ReaderWriter */ {
 			public:
 				SSHChannel(int socket, LIBSSH2_SESSION *session, const std::string& cmd);
 				SSHChannel(int socket, LIBSSH2_SESSION *session, const std::string& host,

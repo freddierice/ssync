@@ -4,27 +4,20 @@ package proto;
 
 // Command holds the command for the program
 message Command {
-	enum Type {
-		ERROR = 0;
-		FILE_LIST = 1;
-	}
-
-	Type type = 1;
-	FileList file_list = 2;
+	string error_msg = 1;
+	repeated File files = 2;
 	Plan plan = 3;
 }
 
 // FileList holds a list of files.
-message FileList {
-	repeated string files = 1;
+message File {
+	uint64 size = 1;
+	string name = 2;
 }
 
 // the send plan consists of the indices of the next files in the queue
 // to be run. 
 message Plan {
-	message File {
-		uint64 id = 1;
-		uint64 size = 2;
-	}
-	repeated File files = 1;
+	uint64 id = 1;
+	repeated uint64 files = 2;
 }

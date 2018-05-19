@@ -14,6 +14,7 @@ namespace filesystem = std::experimental::filesystem;
 #include "util/parse.h"
 #include "proto/command.pb.h"
 #include "log/log.h"
+#include "fs/wfile.h"
 
 #include <cstring>
 #include <libgen.h>
@@ -46,12 +47,12 @@ int main(int argc, const char *argv[]) {
 	// parse the file list
 	std::vector<std::string> locals;
 	proto::Command command;
-	command.set_type(proto::Command::FILE_LIST);
-	auto file_list = command.mutable_file_list();
+	auto files = command.mutable_files();
 	for (int i = 1; i < argc-1; i++) {
 		auto p = std::experimental::filesystem::path(argv[i]);
 		locals.push_back(target / p.filename());
-		file_list->add_files(p.string());
+		auto file = files->Add();
+		file->set_name(p.string());
 	}
 
 	net::Client::Config client_config;
@@ -69,6 +70,42 @@ int main(int argc, const char *argv[]) {
 		
 		console->info("clearing");
 		command.Clear();
+
+		console->info("getting the files");
+		conn->recvMessage(command);
+
+		if (!command.files_size()) {
+			console->error("server did not send files");
+			return 1;
+		}
+
+		std::vector<std::string> file_list;
+		std::vector<int> size_list;
+		for (const auto& file : command.files()) {
+			file_list.push_back(file.name());
+			size_list.push_back(file.size());
+		}
+
+		auto files = fs::create_files(file_list, size_list);
+	
+		while (1) {
+			console->info("waiting for plan");
+			conn->recvMessage(command);
+			if (command.error_msg().length()) {
+				console->error("error from server: {}", command.error_msg());
+				break;
+			}
+			if (!command.has_plan()) {
+				console->error("did not recieve a plan");
+				break;
+			}
+
+			auto plan = command.plan();
+			for (const auto& iter : plan.files()) {
+				console->info("files: {}", iter);
+			}
+			break;
+		}
 
 	} catch (net::ClientException &ex) {
 		console->error("caught client exception: {}", ex.what());

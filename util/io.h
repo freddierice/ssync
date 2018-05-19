@@ -1,11 +1,12 @@
-#ifndef __IO_H__
-#define __IO_H__
+#ifndef __UTIL_IO_H__
+#define __UTIL_IO_H__
 
 #include <unistd.h>
 #include <errno.h>
 
 namespace ssync {
 namespace util {
+	/*
 	class Reader {
 	public:
 		// reads into the buffer and returns the number of bytes written.
@@ -27,7 +28,7 @@ namespace util {
 		// checks to see if the file is still open 
 		virtual bool open() = 0;
 	};
-
+*/
 	// write_full is a utility function that can be inlined to write the
 	// entire buffer.
 	inline int write_full(int fd, const void* buffer, int len) {
@@ -63,4 +64,4 @@ namespace util {
 }
 }
 
-#endif
+#endif /* __UTIL_IO_H__ */

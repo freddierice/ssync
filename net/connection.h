@@ -31,6 +31,10 @@ namespace net {
 		// true while the connection is valid.
 		bool connected();
 
+		// get the underlying file descriptors
+		int rfd() { return m_read_fd; }
+		int wfd() { return m_write_fd; }
+
 	private:
 		// no default constructor, only valid with connection.
 		Connection() = delete;

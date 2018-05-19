@@ -6,7 +6,7 @@
 #include <memory>
 #include <mutex>
 
-#include "fs/file.h"
+#include "fs/rfile.h"
 #include "util/exception.h"
 #include "smart/plan.h"
 #include "smart/plan_raw.h"
@@ -25,20 +25,20 @@ namespace smart {
 			int m_min_plan_size;
 		};
 	public:
-		Planner(std::list<std::shared_ptr<fs::File>> files);
+		Planner(std::list<std::shared_ptr<fs::RFile>> files);
 
 		bool empty();
-		std::shared_ptr<Plan> next();
+		void next(std::unique_ptr<Plan>&);
 	private:
 		Planner() = delete;
 
-		std::list<std::shared_ptr<fs::File>> m_files;
+		std::list<std::shared_ptr<fs::RFile>> m_files;
 		Config m_config;
 
 		std::condition_variable m_cv;
 		std::mutex m_mutex;
 		int m_plan_taken;
-		std::shared_ptr<Plan> m_next_plan;
+		std::unique_ptr<Plan> m_next_plan;
 	};
 }
 }

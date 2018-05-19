@@ -13,7 +13,8 @@
 #include "util/parse.h"
 #include "log/log.h"
 #include "proto/command.pb.h"
-#include "fs/file.h"
+#include "fs/rfile.h"
+#include "fs/wfile.h"
 #include "smart/planner.h"
 #include "smart/executor.h"
 #include "session/session.h"
@@ -82,21 +83,27 @@ void handle_client(std::shared_ptr<net::Connection> conn) try {
 	// get a FileList
 	proto::Command command;
 	while (!conn->recvMessage(command)) {}
-	if (command.type() != proto::Command::FILE_LIST)
+	if (!command.files_size())
 		throw std::runtime_error("client should have sent a file list");
 	
 	// get the file list
 	console->info("getting file list");
-	auto file_list = command.file_list().files();
-	const auto file_list_size = file_list.size();
-	std::vector<std::string> files;
-	for (auto i = 0; i < file_list_size; i++) {
-		console->info("got: {}", file_list[i]);
-		files.push_back(file_list[i]);
+	const auto const_files = command.files();
+	const auto files_size = command.files_size();
+	std::vector<std::string> filenames;
+	for (auto i = 0; i < files_size; i++) {
+		console->info("got: {}", const_files[i].name());
+		filenames.push_back(const_files[i].name());
 	}
 
 	// get file info
-	auto info = fs::File::get_files(files);
+	std::list<std::shared_ptr<fs::RFile>> info = fs::get_files(filenames);
+
+	// send back file info
+	google::protobuf::RepeatedPtrField<proto::File>* files = command.mutable_files();
+	int i = 0;
+	for (auto iter = info.begin(); iter != info.end(); ++iter)
+		files->Mutable(i++)->set_size((*iter)->size());
 
 	// create the planner
 	smart::Planner planner(info);
